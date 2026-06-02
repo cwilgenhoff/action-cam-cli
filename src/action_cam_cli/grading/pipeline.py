@@ -147,7 +147,7 @@ def run(input_dir: Path, output_dir: Path | None = None, *, force: bool = False,
     out_dir = validate_environment(input_dir, output_dir, check_encoder=not dry_run)
 
     eprint("Environment OK:")
-    eprint(f"  ffmpeg/ffprobe : found on PATH")
+    eprint("  ffmpeg/ffprobe : found on PATH")
     eprint(f"  LUT            : {LUT_PATH}")
     eprint(f"  input dir      : {input_dir.resolve()}")
     eprint(f"  output dir     : {out_dir.resolve()}")
