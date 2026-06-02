@@ -341,7 +341,11 @@ def build_filter_graph(n_clips: int, lut_path: Path):
     """
     inputs = "".join(f"[{i}:v][{i}:a]" for i in range(n_clips))
     concat = f"{inputs}concat=n={n_clips}:v=1:a=1[vc][ac]"
-    video = f"[vc]lut3d=file={_escape_filter_path(lut_path)}[vout]"
+    # Single quotes are required so ffmpeg's graph-level tokenizer copies the path
+    # literally and preserves the backslash in '\:'; that escape is then resolved at
+    # the option-parsing pass. Without the quotes the backslash is consumed too early
+    # and the drive-letter colon splits the value ("No option name near '/...'").
+    video = f"[vc]lut3d=file='{_escape_filter_path(lut_path)}'[vout]"
     audio = f"[ac]{AUDIO_FILTER}[aout]"
     return ";".join([concat, video, audio])
 
