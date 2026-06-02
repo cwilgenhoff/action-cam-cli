@@ -2,7 +2,7 @@
 
 **The Application:** `action-cam-cli` is a frictionless, automated video pipeline for DJI Action 4 cycling footage. It solves two problems: seamlessly concatenating the camera's ~25-minute file "chapters" back into whole recordings, and converting flat D-Log M footage to Rec.709 with a 3D LUT — producing one finished master per recording.
 
-**Status: ACTIVE REFACTORING.** The single-file script has been moved into a `src/` package (`src/action_cam_cli/`, installed via `pip install -e .`, console script `action-cam`), but a **larger architectural refactor is planned before** the next feature, **GPX telemetry generation** (see `docs/PRD-telemetry.md`). Expect significant structural changes and file movements — **do not aggressively block architectural changes or file moves requested by the Lead Engineer.**
+**Status: ACTIVE REFACTORING.** The single-file script has been moved into a `src/` package (`src/action_cam_cli/`, installed via `pip install -e .`, console script `action-cam`), but a **larger architectural refactor is planned before** the next feature, **GPX telemetry generation** (see `docs/prds/0002-telemetry.md`). Expect significant structural changes and file movements — **do not aggressively block architectural changes or file moves requested by the Lead Engineer.**
 
 **Core Philosophy:**
 * **Zero UI Friction:** dump the SD card, run one CLI command, and walk away. No manual NLE timeline syncing.
@@ -36,5 +36,5 @@ While full standard documents will be written later, agents MUST adhere to these
 
 Detailed technical specifications and planning artifacts live under `docs/`. Agents must consult the relevant PRD before implementing new modules:
 
-* **Core Pipeline (as-built):** `docs/PRD-merge-grade.md`
-* **Telemetry Generation:** `docs/PRD-telemetry.md` *(draft, in development)*
+* **Core Pipeline (as-built):** `docs/prds/0001-merge-grade.md`
+* **Telemetry Generation:** `docs/prds/0002-telemetry.md` *(draft, in development)*
