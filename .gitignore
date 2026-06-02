@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# macOS / Windows system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# DJI low-res proxy files (never tracked, even if run in a working dir)
+*.LRF
+*.lrf
