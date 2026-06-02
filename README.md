@@ -1,69 +1,101 @@
-# DJI Action 4 Merge & Grade Pipeline
+# action-cam-cli
 
-A CLI utility that ingests chunked DJI Action 4 HEVC (D-Log M, 10-bit) clips,
-groups them into continuous recording sessions by their filename sequence
-counter, concatenates each session seamlessly, applies the
-`luts/dji-action-4.cube` 3D LUT to convert D-Log M → Rec.709, and renders one
-NVENC-accelerated master `.mp4` per session.
+**Turn a folder of raw DJI Action 4 clips into finished, color-graded videos — automatically.**
 
-See [docs/PRD-merge-grade.md](docs/PRD-merge-grade.md) for the full technical specification.
+## The problem
 
-## Requirements
+Two things make DJI Action 4 footage tedious to deal with before you can actually
+watch or share it:
 
-- Python 3.10+ (native Windows is the primary target; macOS/Linux also work)
-- FFmpeg + FFprobe on `PATH` (an `hevc_nvenc`-capable build)
-- An NVIDIA GPU with NVENC (e.g. RTX 4070)
-- `luts/dji-action-4.cube` present (the Rec.709 conversion LUT)
+1. **Long recordings come out in pieces.** To work around file-size limits, the
+   camera splits anything longer than ~25 minutes into multiple "chapter" files.
+   A single 40-minute ride is really two or three separate `.mp4` files that have
+   to be stitched back together in the right order.
+2. **D-Log M footage looks flat and washed out.** Shooting in D-Log M preserves
+   dynamic range for editing, but straight off the camera it's grey and
+   low-contrast. It needs a color conversion (a LUT) into a normal Rec.709 look
+   before it's watchable.
 
-Optional Python deps (nicer progress bar via `tqdm`; the tool falls back to
-plain percentage logging if it isn't installed):
+Normally that means dragging every clip into a video editor, lining them up by
+hand, dropping a LUT on each, and exporting — for every recording, every time.
+
+## What it does
+
+Point `action-cam` at a folder of clips and it handles all of that for you:
+
+- **Figures out which clips belong to the same recording** (using the camera's
+  sequence numbering) and produces one finished file per recording.
+- **Stitches each recording back into one seamless file** — video and audio, no
+  gaps or drift at the joins.
+- **Applies the D-Log M → Rec.709 color conversion** so the result looks right
+  out of the box.
+- **Cleans up the audio**, taming the Action 4 mic's boomy low end.
+- **Renders fast on your GPU** (NVIDIA NVENC), keeping the original 10-bit color.
+
+The result: one ready-to-watch `.mp4` per recording, named by its timestamp — no
+editor, no manual sorting, batch-friendly.
+
+## Getting started
+
+### Prerequisites
+
+- An **NVIDIA GPU** with NVENC (e.g. RTX 4070) — encoding is GPU-accelerated.
+- **FFmpeg** (a build that includes `hevc_nvenc`) available on your `PATH`.
+  Verify it's there:
+  - Windows: `ffmpeg -hide_banner -encoders | findstr nvenc`
+  - macOS/Linux: `ffmpeg -hide_banner -encoders | grep nvenc`
+- **Python 3.10+**. Native Windows is the primary target; macOS/Linux also work.
+
+### Install
+
+From the project folder:
 
 ```powershell
-# Windows (PowerShell / cmd):
+# Windows (PowerShell)
 py -m venv .venv
 .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -e .
 ```
 
 ```bash
-# macOS / Linux:
+# macOS / Linux
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e .
 ```
 
-## Usage
+That installs the `action-cam` command along with everything it needs (including
+the progress bar).
 
-On Windows use `python` (or `py`); on macOS/Linux use `python3`.
+### Use it
 
 ```powershell
-# Merge all sessions in a directory, writing each master back into it
-python merge_grade.py "D:\DJI\clips"
+# Grade every recording in a folder (writes the results back into it)
+action-cam "D:\DJI\clips"
 
-# Write masters to a separate output directory
-python merge_grade.py "D:\DJI\clips" -o "D:\DJI\masters"
+# Send the finished files to a separate folder
+action-cam "D:\DJI\clips" -o "D:\DJI\masters"
 
-# Overwrite existing output files instead of skipping them
-python merge_grade.py "D:\DJI\clips" --force
+# Overwrite existing results instead of skipping them
+action-cam "D:\DJI\clips" --force
 
-# Validate sessions and print the ffmpeg command(s) without encoding
-python merge_grade.py "D:\DJI\clips" --dry-run
+# Preview what would happen, without rendering anything
+action-cam "D:\DJI\clips" --dry-run
 ```
 
-`--dry-run` writes each constructed command to **stdout** (progress/status go to
-stderr), so you can inspect or capture it before committing to a multi-GB render:
+### What to expect
 
-```powershell
-python merge_grade.py "D:\DJI\clips" --dry-run > commands.txt
-```
+- One file per recording, named `[timestamp]_merged_graded.mp4`.
+- A live progress bar per recording. Press **Ctrl+C** to stop — the in-progress
+  file is deleted automatically so you're never left with a half-rendered video.
+- Proxy files (`.LRF`) and unrelated files are ignored. If the clips in one
+  recording don't match (different resolution or frame rate), that recording is
+  skipped with a warning and the rest still process.
+- `--dry-run` prints the exact FFmpeg command(s) to **stdout** (status messages
+  go to stderr), so you can inspect — or capture with `> commands.txt` — before
+  committing to a multi-GB batch.
 
-Each continuous recording session (consecutive sequence counters) becomes one
-`[EarliestStamp]_merged_graded.mp4`. A live progress bar is shown per session;
-press **Ctrl+C** to abort — the running ffmpeg encoder is terminated and the
-incomplete output file is deleted.
+## Under the hood
 
-## Implementation status
-
-- [x] **Phase 1** — CLI, dependency checks, LUT validation
-- [x] **Phase 2** — Clip discovery, filename parsing, session grouping by sequence counter
-- [x] **Phase 3** — Per-session ffprobe validation, filter graph & ffmpeg command construction
-- [x] **Phase 4** — NVENC execution, progress UX (tqdm), graceful Ctrl+C termination & cleanup
+The color conversion uses the 3D LUT shipped at
+`assets/luts/dji-action-4.cube`. For the full technical specification, see
+[docs/PRD-merge-grade.md](docs/PRD-merge-grade.md).
