@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "action-cam-cli"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Merge chaptered DJI Action 4 D-Log M clips and apply a Rec.709 LUT via NVENC."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,6 +25,10 @@ action-cam = "action_cam_cli.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# Single source of truth for the version: src/action_cam_cli/__init__.py.
+[tool.setuptools.dynamic]
+version = { attr = "action_cam_cli.__version__" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
