@@ -84,8 +84,11 @@ class TestFfmpegCommand:
         assert "[vout]" in cmd and "[aout]" in cmd
 
     def test_output_path_is_last_argument(self, make_clip):
-        cmd = build_ffmpeg_command([make_clip(12)], Path("/out/master.mp4"), lut_path=Path("/l/x.cube"))
-        assert cmd[-1] == "/out/master.mp4"
+        out = Path("/out/master.mp4")
+        cmd = build_ffmpeg_command([make_clip(12)], out, lut_path=Path("/l/x.cube"))
+        # str(out) — not a hardcoded "/..." — so the assertion holds on Windows too,
+        # where Path renders with backslashes.
+        assert cmd[-1] == str(out)
 
     @pytest.mark.parametrize("force, y_present", [(False, False), (True, True)])
     def test_force_controls_overwrite_flag(self, make_clip, force, y_present):
