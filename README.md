@@ -99,3 +99,7 @@ action-cam "D:\DJI\clips" --dry-run
 The color conversion uses the 3D LUT shipped at
 `assets/luts/dji-action-4.cube`. For the full technical specification, see
 [docs/PRD-merge-grade.md](docs/PRD-merge-grade.md).
+
+## License
+
+Released under the [GNU Affero General Public License v3.0 or later](LICENSE).
