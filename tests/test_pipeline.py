@@ -67,3 +67,21 @@ class TestEnvironmentValidation:
         result = validate_environment(tmp_path, out)
         assert result == out
         assert out.is_dir()
+
+
+class TestNvencPreflight:
+    """validate_environment(check_encoder=...): NVENC is a hard prerequisite for renders."""
+
+    def test_raises_when_nvenc_unavailable(self, env_ok, monkeypatch, tmp_path):
+        monkeypatch.setattr(pipeline, "has_nvenc_encoder", lambda: False)
+        with pytest.raises(PipelineError, match="NVENC"):
+            validate_environment(tmp_path, None, check_encoder=True)
+
+    def test_passes_when_nvenc_available(self, env_ok, monkeypatch, tmp_path):
+        monkeypatch.setattr(pipeline, "has_nvenc_encoder", lambda: True)
+        assert validate_environment(tmp_path, None, check_encoder=True) == tmp_path
+
+    def test_skipped_when_not_requested(self, env_ok, monkeypatch, tmp_path):
+        # e.g. --dry-run: no GPU needed, so an unavailable encoder must not block.
+        monkeypatch.setattr(pipeline, "has_nvenc_encoder", lambda: False)
+        assert validate_environment(tmp_path, None, check_encoder=False) == tmp_path

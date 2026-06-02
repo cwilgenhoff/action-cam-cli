@@ -39,7 +39,9 @@ editor, no manual sorting, batch-friendly.
 
 ### Prerequisites
 
-- An **NVIDIA GPU** with NVENC (e.g. RTX 4070) — encoding is GPU-accelerated.
+- An **NVIDIA GPU** with NVENC (e.g. RTX 4070) — encoding is GPU-accelerated and
+  **required**. The tool checks NVENC up front and aborts with a clear message if
+  it's unavailable. (`--dry-run` needs no GPU — it only prints the planned commands.)
 - **FFmpeg** (a build that includes `hevc_nvenc`) available on your `PATH`.
   Verify it's there:
   - Windows: `ffmpeg -hide_banner -encoders | findstr nvenc`
@@ -82,6 +84,8 @@ action-cam "D:\DJI\clips" --force
 action-cam "D:\DJI\clips" --dry-run
 ```
 
+Run `action-cam --help` for the full list of options.
+
 ### What to expect
 
 - One file per recording, named `[timestamp]_merged_graded.mp4`.
@@ -99,6 +103,15 @@ action-cam "D:\DJI\clips" --dry-run
 The color conversion uses the 3D LUT shipped at
 `assets/luts/dji-action-4.cube`. For the full technical specification, see
 [docs/PRD-merge-grade.md](docs/PRD-merge-grade.md).
+
+## Development
+
+```bash
+pip install -e ".[dev]"   # editable install with pytest
+pytest                    # run the test suite
+```
+
+Architecture decisions are recorded as ADRs in [docs/adrs/](docs/adrs/).
 
 ## License
 

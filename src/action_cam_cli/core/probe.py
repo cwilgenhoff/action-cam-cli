@@ -1,4 +1,4 @@
-"""ffprobe wrappers for extracting stream and format metadata.
+"""ffprobe/ffmpeg metadata and capability probes.
 
 Domain-agnostic: usable by any pipeline (grading today, telemetry next).
 """
@@ -78,3 +78,25 @@ def probe_creation_time(path: Path) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def has_nvenc_encoder() -> bool:
+    """Return True if ffmpeg can actually encode with ``hevc_nvenc`` on this machine.
+
+    Runs a sub-second probe encode rather than just parsing ``ffmpeg -encoders``: the
+    encoder list only reflects *build* support, whereas attempting a real encode also
+    confirms a working NVIDIA GPU and driver. Returns False on any failure (non-zero
+    exit, ffmpeg missing, etc.) rather than raising.
+    """
+    cmd = [
+        "ffmpeg", "-hide_banner", "-loglevel", "error",
+        "-f", "lavfi", "-i", "color=c=black:s=256x256:r=30",
+        "-t", "0.1",
+        "-c:v", "hevc_nvenc",
+        "-f", "null", "-",
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0

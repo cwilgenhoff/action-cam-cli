@@ -18,7 +18,7 @@ except ImportError:  # tqdm is optional; fall back to coarse percentage logging.
 
 from action_cam_cli.core.config import LUT_PATH, REQUIRED_BINARIES, eprint
 from action_cam_cli.core.errors import PipelineError
-from action_cam_cli.core.probe import probe_video_params
+from action_cam_cli.core.probe import has_nvenc_encoder, probe_video_params
 from action_cam_cli.grading.executor import run_session
 from action_cam_cli.grading.ffmpeg import build_ffmpeg_command
 from action_cam_cli.grading.sessions import (
@@ -37,11 +37,13 @@ def check_dependencies(binaries=REQUIRED_BINARIES):
     return missing
 
 
-def validate_environment(input_dir: Path, output_dir: Path | None):
+def validate_environment(input_dir: Path, output_dir: Path | None, *, check_encoder: bool = False):
     """Validate dependencies, the LUT, and the input/output directories.
 
-    Raises PipelineError with a user-facing message on any fatal problem.
-    Returns the resolved output directory on success.
+    When ``check_encoder`` is True, also verify that the NVENC hardware encoder is
+    usable (a real render needs it; a ``--dry-run`` does not). Raises PipelineError
+    with a user-facing message on any fatal problem. Returns the resolved output
+    directory on success.
     """
     # 1. External binaries.
     missing = check_dependencies()
@@ -73,6 +75,15 @@ def validate_environment(input_dir: Path, output_dir: Path | None):
             resolved_output.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
             raise PipelineError(f"ERROR: Could not create output directory {resolved_output}: {exc}")
+
+    # 5. Hardware encoder (only required for an actual render — not a dry run).
+    if check_encoder and not has_nvenc_encoder():
+        raise PipelineError(
+            "ERROR: NVIDIA NVENC encoder (hevc_nvenc) is not available.\n"
+            "       This tool requires an NVIDIA GPU with NVENC support. Verify with:\n"
+            "         ffmpeg -hide_banner -encoders | grep nvenc\n"
+            "       (Use --dry-run to inspect the planned commands without a GPU.)"
+        )
 
     return resolved_output
 
@@ -133,7 +144,7 @@ def run(input_dir: Path, output_dir: Path | None = None, *, force: bool = False,
     Raises PipelineError for fatal conditions; the CLI is responsible for catching
     it and translating to an exit code.
     """
-    out_dir = validate_environment(input_dir, output_dir)
+    out_dir = validate_environment(input_dir, output_dir, check_encoder=not dry_run)
 
     eprint("Environment OK:")
     eprint(f"  ffmpeg/ffprobe : found on PATH")
