@@ -10,6 +10,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from action_cam_cli import __version__
 from action_cam_cli.core.config import eprint
 from action_cam_cli.core.errors import PipelineError
 from action_cam_cli.grading.pipeline import run
@@ -22,6 +23,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "Merge chronologically-chaptered DJI Action 4 D-Log M clips and apply "
             "a Rec.709 3D LUT, rendering a single NVENC-encoded master file."
         ),
+    )
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
     )
     parser.add_argument(
         "input_dir",

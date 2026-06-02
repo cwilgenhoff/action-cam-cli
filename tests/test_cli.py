@@ -10,12 +10,20 @@ from pathlib import Path
 
 import pytest
 
-from action_cam_cli import cli
+from action_cam_cli import __version__, cli
 from action_cam_cli.core.errors import PipelineError
 
 
 class TestArgumentParsing:
     """parse_args: defaults, flags, and required positional."""
+
+    @pytest.mark.parametrize("flag", ["-V", "--version"])
+    def test_version_flag_prints_and_exits_zero(self, flag, capsys):
+        # argparse's "version" action prints to stdout and exits with code 0.
+        with pytest.raises(SystemExit) as exc:
+            cli.parse_args([flag])
+        assert exc.value.code == 0
+        assert __version__ in capsys.readouterr().out
 
     def test_defaults(self):
         args = cli.parse_args(["/in"])
