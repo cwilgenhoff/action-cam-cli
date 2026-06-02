@@ -102,7 +102,7 @@ Run `action-cam --help` for the full list of options.
 
 The color conversion uses the 3D LUT shipped at
 `assets/luts/dji-action-4.cube`. For the full technical specification, see
-[docs/PRD-merge-grade.md](docs/PRD-merge-grade.md).
+[docs/prds/0001-merge-grade.md](docs/prds/0001-merge-grade.md).
 
 ## Development
 
