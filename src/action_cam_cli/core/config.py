@@ -1,12 +1,12 @@
-"""Shared configuration: constants, the ``Clip`` data model, and asset paths.
+"""Cross-cutting configuration and the shared stderr helper.
 
-Everything the CLI and the grading pipeline both depend on lives here, so future
-features (e.g. telemetry generation) can import from a single place.
+Only genuinely cross-cutting things live here (asset paths, external-tool names,
+the ``eprint`` helper). Domain-specific constants live in their own domain modules
+— e.g. the NVENC flags in ``grading/ffmpeg.py`` and the DJI filename regex in
+``grading/sessions.py`` (see ADR 0002).
 """
 
-import re
-from dataclasses import dataclass
-from datetime import datetime
+import sys
 from pathlib import Path
 
 # --- Asset path resolution -------------------------------------------------
@@ -44,34 +44,7 @@ LUT_PATH: Path = get_lut_path()
 # --- External tooling ------------------------------------------------------
 REQUIRED_BINARIES: tuple[str, ...] = ("ffmpeg", "ffprobe")
 
-# --- DJI filename convention: DJI_YYYYMMDDHHMMSS_XXXX_D.MP4 -----------------
-#   group 1: 14-digit datetime stamp
-#   group 2: 4-digit sequential counter
-# Matched case-insensitively; only the .mp4 extension is accepted (proxies are .LRF).
-DJI_NAME_RE = re.compile(r"^DJI_(\d{14})_(\d{4})_D\.mp4$", re.IGNORECASE)
-DJI_DATETIME_FMT = "%Y%m%d%H%M%S"
 
-# --- FFmpeg parameters -----------------------------------------------------
-# NOTE: these values define the encoding behavior and must not be altered.
-# Audio filter to tame the Action 4 mic's low-frequency boominess (low-shelf cut).
-AUDIO_FILTER = "bass=g=-6:f=150"
-
-# NVENC output flags (10-bit HEVC).
-NVENC_OUTPUT_ARGS: list[str] = [
-    "-c:v", "hevc_nvenc",
-    "-preset", "p6",
-    "-cq", "19",
-    "-pix_fmt", "p010le",
-    "-c:a", "aac",
-    "-b:a", "320k",
-]
-
-
-@dataclass
-class Clip:
-    """A single DJI source clip parsed from its filename."""
-
-    path: Path
-    counter: int          # the 4-digit XXXX sequence number
-    created: datetime     # parsed from the YYYYMMDDHHMMSS stamp
-    stamp: str            # raw 14-digit datetime string (for output naming)
+def eprint(*args, **kwargs):
+    """Print to stderr so stdout stays clean for machine-readable output."""
+    print(*args, file=sys.stderr, **kwargs)

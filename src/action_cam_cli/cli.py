@@ -1,15 +1,18 @@
-"""Command-line interface: argument parsing and routing only.
+"""Command-line interface: argument parsing, routing, and exit-code translation.
 
-The ``action-cam`` console script (see pyproject.toml) points at :func:`main`,
-which parses arguments and delegates all work to
-:func:`action_cam_cli.grading.merge_grade.run`.
+Holds no business logic. The ``action-cam`` console script (see pyproject.toml)
+points at :func:`main`, which parses arguments, delegates to
+:func:`action_cam_cli.grading.pipeline.run`, and translates a ``PipelineError``
+into a non-zero exit code (per ADR 0002).
 """
 
 import argparse
 import sys
 from pathlib import Path
 
-from action_cam_cli.grading.merge_grade import run
+from action_cam_cli.core.config import eprint
+from action_cam_cli.core.errors import PipelineError
+from action_cam_cli.grading.pipeline import run
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -50,12 +53,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    return run(
-        args.input_dir,
-        args.output_dir,
-        force=args.force,
-        dry_run=args.dry_run,
-    )
+    try:
+        return run(
+            args.input_dir,
+            args.output_dir,
+            force=args.force,
+            dry_run=args.dry_run,
+        )
+    except PipelineError as exc:
+        eprint(str(exc))
+        return 1
 
 
 if __name__ == "__main__":
