@@ -19,3 +19,8 @@ desktop.ini
 # DJI low-res proxy files (never tracked, even if run in a working dir)
 *.LRF
 *.lrf
+
+# Local sample media — never committed (privacy: real GPS/footage, and size).
+# Committed, anonymized test fixtures live in tests/fixtures/ instead.
+samples/*
+!samples/README.md
