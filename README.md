@@ -39,7 +39,9 @@ editor, no manual sorting, batch-friendly.
 
 ### Prerequisites
 
-- An **NVIDIA GPU** with NVENC (e.g. RTX 4070) — encoding is GPU-accelerated.
+- An **NVIDIA GPU** with NVENC (e.g. RTX 4070) — encoding is GPU-accelerated and
+  **required**. The tool checks NVENC up front and aborts with a clear message if
+  it's unavailable. (`--dry-run` needs no GPU — it only prints the planned commands.)
 - **FFmpeg** (a build that includes `hevc_nvenc`) available on your `PATH`.
   Verify it's there:
   - Windows: `ffmpeg -hide_banner -encoders | findstr nvenc`
