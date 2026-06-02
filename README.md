@@ -6,7 +6,7 @@ counter, concatenates each session seamlessly, applies the
 `luts/dji-action-4.cube` 3D LUT to convert D-Log M → Rec.709, and renders one
 NVENC-accelerated master `.mp4` per session.
 
-See [PRD.md](PRD.md) for the full technical specification.
+See [docs/PRD-merge-grade.md](docs/PRD-merge-grade.md) for the full technical specification.
 
 ## Requirements
 
