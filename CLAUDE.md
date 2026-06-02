@@ -24,6 +24,7 @@ While full standard documents will be written later, agents MUST adhere to these
 | Domain | Baseline Rule |
 | --- | --- |
 | **FFmpeg Integrity** | The filter graph (`concat` + `lut3d` + `bass=g=-6:f=150`) and hardware encode flags (`-c:v hevc_nvenc -preset p6 -cq 19 -pix_fmt p010le -c:a aac -b:a 320k`) are highly optimized. **Never alter encoding parameters, pixel format, or hardware flags** without explicit instruction. |
+| **Hardware Requirement** | NVENC is **mandatory**. A real render preflights it with a sub-second probe encode and aborts with a clear message if absent (`--dry-run` skips the check). There is **no CPU/libx265 fallback** — adding one would reverse this stance and requires a new ADR. |
 | **LUT Path Quoting** | The `lut3d` file path must stay **single-quoted with its drive-letter colon escaped** (`file='C\:/.../dji-action-4.cube'`). This is required for the Windows filtergraph parser — do not "simplify" the quoting or escaping. |
 | **Asset Resolution** | Bundled assets (the LUT under `assets/`) are resolved **relative to the package** via `core.config`, never assumed to be in the current working directory. Do not reintroduce cwd-relative asset paths. |
 | **CLI User Experience** | The tool runs unattended via `argparse`. Human status/progress goes to **stderr**; machine-readable output (e.g. `--dry-run` commands) goes to **stdout**. Errors must be cleanly caught and logged. |

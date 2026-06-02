@@ -71,10 +71,12 @@ per session, ready for viewing or archive.
 * **Performance:** CPU-only encoding is prohibited. The FFmpeg command prioritizes
   NVENC (`-c:v hevc_nvenc`). Decode + `lut3d` run on CPU/RAM by design (see §3).
 * **Resilience:** The script aborts early (before any encode) with a clear error if
-  `ffmpeg`/`ffprobe` are missing, if `luts/dji-action-4.cube` is missing, or if no
-  DJI clips are found. Per session, a resolution/framerate mismatch causes that
-  session to be skipped with a warning while other sessions continue. ffmpeg's own
-  output is suppressed unless an error occurs.
+  `ffmpeg`/`ffprobe` are missing, if `assets/luts/dji-action-4.cube` is missing, if
+  the NVENC hardware encoder is unavailable (checked up front for a real render;
+  `--dry-run` skips this), or if no DJI clips are found. Per session, a
+  resolution/framerate mismatch causes that session to be skipped with a warning
+  while other sessions continue. ffmpeg's own output is suppressed unless an error
+  occurs.
 * **Portability:** Windows-first, but cross-platform (`pathlib`, list-form
   subprocess, platform-aware filtergraph path escaping).
 * **Interruption:** `Ctrl+C` gracefully terminates the running ffmpeg process and
