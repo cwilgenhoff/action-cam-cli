@@ -1,25 +1,19 @@
-#!/usr/bin/env python3
-"""DJI Action 4 Merge & Grade Pipeline.
+"""DJI Action 4 Merge & Grade business logic.
 
-Ingests chunked DJI Action 4 HEVC (D-Log M) recordings from a directory,
-sorts them chronologically, concatenates them, applies a Rec.709 3D LUT, and
-renders a single hardware-accelerated (NVENC) master file.
+Scans an input directory for chunked DJI Action 4 HEVC (D-Log M) clips, groups
+them into recording sessions by their filename sequence counter, validates each
+session, and renders one hardware-accelerated (NVENC) Rec.709 master per session.
 
-This file is built up in phases (see PRD.md). Phase 1 implemented:
-  - argparse CLI (input dir, optional output dir)
-  - ffmpeg / ffprobe dependency checks
-  - LUT existence validation
+The FFmpeg command construction, ``subprocess`` execution, and ``tqdm`` progress
+handling are intentionally unchanged from the original single-file tool.
 """
 
-import argparse
 import json
-import re
 import shlex
 import shutil
 import subprocess
 import sys
 import threading
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -28,83 +22,20 @@ try:
 except ImportError:  # tqdm is optional; fall back to coarse percentage logging.
     tqdm = None
 
-# LUT lives in luts/ next to this script, per the PRD asset-management rule.
-SCRIPT_DIR = Path(__file__).resolve().parent
-LUT_PATH = SCRIPT_DIR / "luts" / "dji-action-4.cube"
-
-# Required external binaries.
-REQUIRED_BINARIES = ("ffmpeg", "ffprobe")
-
-# DJI Action 4 naming convention: DJI_YYYYMMDDHHMMSS_XXXX_D.MP4
-#   group 1: 14-digit datetime stamp
-#   group 2: 4-digit sequential counter
-# Matched case-insensitively; only the .mp4 extension is accepted (proxies are .LRF).
-DJI_NAME_RE = re.compile(r"^DJI_(\d{14})_(\d{4})_D\.mp4$", re.IGNORECASE)
-DJI_DATETIME_FMT = "%Y%m%d%H%M%S"
-
-# Audio filter to tame the Action 4 mic's low-frequency boominess (low-shelf cut).
-AUDIO_FILTER = "bass=g=-6:f=150"
-
-# NVENC output flags (10-bit HEVC). See PRD §4 / Phase 4.
-NVENC_OUTPUT_ARGS = [
-    "-c:v", "hevc_nvenc",
-    "-preset", "p6",
-    "-cq", "19",
-    "-pix_fmt", "p010le",
-    "-c:a", "aac",
-    "-b:a", "320k",
-]
-
-
-@dataclass
-class Clip:
-    """A single DJI source clip parsed from its filename."""
-
-    path: Path
-    counter: int          # the 4-digit XXXX sequence number
-    created: datetime     # parsed from the YYYYMMDDHHMMSS stamp
-    stamp: str            # raw 14-digit datetime string (for output naming)
+from action_cam_cli.core.config import (
+    AUDIO_FILTER,
+    DJI_DATETIME_FMT,
+    DJI_NAME_RE,
+    LUT_PATH,
+    NVENC_OUTPUT_ARGS,
+    REQUIRED_BINARIES,
+    Clip,
+)
 
 
 def eprint(*args, **kwargs):
     """Print to stderr so stdout stays clean for any future machine-readable output."""
     print(*args, file=sys.stderr, **kwargs)
-
-
-def parse_args(argv=None):
-    parser = argparse.ArgumentParser(
-        prog="merge_grade",
-        description=(
-            "Merge chronologically-chaptered DJI Action 4 D-Log M clips and apply "
-            "a Rec.709 3D LUT, rendering a single NVENC-encoded master file."
-        ),
-    )
-    parser.add_argument(
-        "input_dir",
-        type=Path,
-        help="Directory containing the raw DJI .mp4 / .MP4 files.",
-    )
-    parser.add_argument(
-        "-o",
-        "--output-dir",
-        type=Path,
-        default=None,
-        help="Directory to write the merged master file (defaults to the input directory).",
-    )
-    parser.add_argument(
-        "-f",
-        "--force",
-        action="store_true",
-        help="Overwrite existing output files (passes -y to ffmpeg). Without this, "
-        "sessions whose output already exists are skipped.",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Validate sessions and print the ffmpeg command(s) to stdout without "
-        "running any encode.",
-    )
-    return parser.parse_args(argv)
 
 
 def check_dependencies(binaries=REQUIRED_BINARIES):
@@ -132,7 +63,7 @@ def validate_environment(input_dir: Path, output_dir: Path | None):
     # 2. LUT must exist before we do any expensive work.
     if not LUT_PATH.is_file():
         eprint(f"ERROR: Required LUT not found: {LUT_PATH}")
-        eprint("       Place the Rec.709 conversion LUT at luts/dji-action-4.cube and retry.")
+        eprint("       Place the Rec.709 conversion LUT at assets/luts/dji-action-4.cube and retry.")
         sys.exit(1)
 
     # 3. Input directory must exist and be a directory.
@@ -508,26 +439,30 @@ def run_session(session, output_path: Path, force: bool, label: str):
     return "ok"
 
 
-def main(argv=None):
-    args = parse_args(argv)
-    output_dir = validate_environment(args.input_dir, args.output_dir)
+def run(input_dir: Path, output_dir: Path | None = None, *, force: bool = False, dry_run: bool = False) -> int:
+    """Run the full merge & grade pipeline. Returns a process exit code.
+
+    This is the routing target for the CLI: validate the environment, discover and
+    group clips into sessions, then render (or, for ``dry_run``, print) each one.
+    """
+    out_dir = validate_environment(input_dir, output_dir)
 
     eprint("Environment OK:")
     eprint(f"  ffmpeg/ffprobe : found on PATH")
     eprint(f"  LUT            : {LUT_PATH}")
-    eprint(f"  input dir      : {args.input_dir.resolve()}")
-    eprint(f"  output dir     : {output_dir.resolve()}")
-    clips = discover_clips(args.input_dir)
+    eprint(f"  input dir      : {input_dir.resolve()}")
+    eprint(f"  output dir     : {out_dir.resolve()}")
+    clips = discover_clips(input_dir)
     if not clips:
         eprint("")
-        eprint(f"ERROR: No DJI .mp4 clips found in {args.input_dir.resolve()}")
+        eprint(f"ERROR: No DJI .mp4 clips found in {input_dir.resolve()}")
         sys.exit(1)
 
     sessions = group_into_sessions(clips)
-    report_sessions(sessions, output_dir)
+    report_sessions(sessions, out_dir)
 
     eprint("")
-    if args.dry_run:
+    if dry_run:
         eprint("DRY RUN: validating sessions and printing ffmpeg commands (no encode).")
     elif tqdm is None:
         eprint("NOTE: tqdm not installed — using plain percentage progress. "
@@ -550,16 +485,16 @@ def main(argv=None):
             width, height, fps = params
             eprint(f"  Uniform: {width}x{height} @ {fps}")
 
-            output_path = output_dir / output_name_for_session(session)
+            output_path = out_dir / output_name_for_session(session)
 
-            if args.dry_run:
-                cmd = build_ffmpeg_command(session, output_path, force=args.force)
+            if dry_run:
+                cmd = build_ffmpeg_command(session, output_path, force=force)
                 eprint(f"  Command for {output_path}:")
                 print(shlex.join(cmd))  # machine-readable, to stdout
                 printed += 1
                 continue
 
-            result = run_session(session, output_path, args.force, label)
+            result = run_session(session, output_path, force, label)
             if result == "ok":
                 rendered += 1
             elif result == "skipped":
@@ -572,14 +507,10 @@ def main(argv=None):
         return 130
 
     eprint("")
-    if args.dry_run:
+    if dry_run:
         eprint(f"Dry run complete: {printed} command(s) printed, {skipped} session(s) "
                f"skipped (of {total}).")
         return 0
     eprint(f"Complete: {rendered} rendered, {skipped} skipped, {failed} failed "
            f"(of {total} session(s)).")
     return 1 if failed else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

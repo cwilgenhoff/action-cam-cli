@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "action-cam-cli"
+version = "0.1.0"
+description = "Merge chaptered DJI Action 4 D-Log M clips and apply a Rec.709 LUT via NVENC."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "tqdm>=4.66",
+]
+
+[project.scripts]
+action-cam = "action_cam_cli.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
