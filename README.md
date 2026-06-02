@@ -1,9 +1,10 @@
 # DJI Action 4 Merge & Grade Pipeline
 
 A CLI utility that ingests chunked DJI Action 4 HEVC (D-Log M, 10-bit) clips,
-sorts them chronologically, concatenates them seamlessly, applies the
-`luts/dji-action-4.cube` 3D LUT to convert D-Log M → Rec.709, and renders a
-single NVENC-accelerated master `.mp4`.
+groups them into continuous recording sessions by their filename sequence
+counter, concatenates each session seamlessly, applies the
+`luts/dji-action-4.cube` 3D LUT to convert D-Log M → Rec.709, and renders one
+NVENC-accelerated master `.mp4` per session.
 
 See [PRD.md](PRD.md) for the full technical specification.
 
