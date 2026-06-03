@@ -30,6 +30,7 @@ While full standard documents will be written later, agents MUST adhere to these
 | **CLI User Experience** | The tool runs unattended via `argparse`. Human status/progress goes to **stderr**; machine-readable output (e.g. `--dry-run` commands) goes to **stdout**. Errors must be cleanly caught and logged. |
 | **Process Management** | `KeyboardInterrupt` (Ctrl+C) must gracefully terminate the underlying `ffmpeg` process **and delete the partial output file** before exiting, to prevent zombie GPU processes and half-rendered videos. |
 | **Data Synchronization** | When aligning external data (like GPX telemetry) with video, rely strictly on UTC atomic timestamps. Never design manual visual syncing mechanisms. |
+| **Testing** | Behavior-first, class-grouped tests per **[`docs/TESTING.md`](docs/TESTING.md)** — assert contracts (not implementation/literals), parametrize the rule, keep tests hermetic. Consult it before adding or changing tests. |
 | **Version Control** | Use atomic, Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`). Commit only when asked. End each commit message with the appropriate `Co-Authored-By:` trailer. |
 
 ## 4. Documentation Map
@@ -38,3 +39,4 @@ Detailed technical specifications and planning artifacts live under `docs/`. Age
 
 * **Core Pipeline (as-built):** `docs/prds/0001-merge-grade.md`
 * **Telemetry Generation:** `docs/prds/0002-telemetry.md` *(draft, in development)*
+* **Testing conventions:** `docs/TESTING.md`
