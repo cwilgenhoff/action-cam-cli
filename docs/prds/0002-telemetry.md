@@ -1,60 +1,55 @@
-# Technical Specification: Telemetry Overlay Generator (`telemetry.py`)
+# Technical Specification: Telemetry Overlay Pipeline
 
-> **Status:** Draft / Phase 1 implementation.
+> **Status:** Draft / Phase 1 implementation. Speed source: Garmin **TCX** (see ADR 0003).
 
 ## 1. Summary
+A programmatic pipeline to parse a Garmin **TCX** export, read the device-measured
+speed per track point, and render a transparent alpha-channel video overlay (`.mov`).
+This gauge is injected into the DJI Action 4 FFmpeg pipeline, using UTC timestamp
+matching to automatically sync the data to the video.
 
-A standalone command-line utility to parse standard GPX 1.1 tracking files, calculate movement speed directly from geospatial coordinates, and render a transparent alpha-channel video overlay (`.mov`). This tool generates a minimalist, frame-accurate speed gauge designed to be overlaid onto DJI Action 4 footage using FFmpeg.
+## 2. Technical Architecture
+* **Core Language:** Python 3.10+ (standard type hinting).
+* **Data Parsing:** Standard-library `xml.etree.ElementTree` (TCX is XML — no third-party parser).
+* **Math & Smoothing:** Pure Python (time-based rolling average + linear interpolation). No `pandas`/`numpy`.
+* **Frame Generation:** `Pillow` (PIL) to draw text onto transparent canvases. No `OpenCV`.
+* **Encoding Engine:** `ffmpeg` via Python `subprocess` (ProRes 4444 or PNG codec for alpha).
 
-## 2. Motivation
+## 3. Core Features & Logic
 
-Standard Garmin Instinct v1 GPX exports do not reliably encode real-time speed in a standardized tag. Commercial telemetry tools are expensive, bloated with gamified dials, and require exporting a fully merged video, resulting in unacceptable double-compression of the master 10-bit HEVC footage. This tool provides a programmatic, lightweight method to generate an alpha-channel overlay that can eventually be injected into an existing zero-loss FFmpeg encoding pipeline.
+### 3.1 Device Speed (from TCX)
+The Garmin TCX records the device's measured speed (GPS Doppler — what the watch
+displays), far more accurate for instantaneous values than re-deriving from coordinates.
 
-## 3. Technical Architecture
+1. For each `<Trackpoint>`, read `<Time>` (UTC) and `<ns3:Speed>` (m/s) from the
+   ActivityExtension namespace.
+2. Convert m/s → km/h.
+3. Track points without a speed value are skipped (interpolated over downstream).
 
-* **Core Language:** Python 3.10+ (using standard type hinting).
-* **Data Parsing:** `gpxpy` for reading the XML tree.
-* **Math & Smoothing:** `scipy` or `pandas` (for 1Hz to 25fps interpolation and rolling averages).
-* **Frame Generation:** `Pillow` (PIL) or `OpenCV` to draw text onto transparent canvas arrays.
-* **Encoding Engine:** `ffmpeg` via Python `subprocess` (to encode the frames into a transparent video file).
-* **Output Codec:** Apple ProRes 4444 (`prores_ks` with `pix_fmt yuva444p10le`) or PNG codec (`vcodec png` with `pix_fmt rgba`) to perfectly preserve the alpha transparency channel.
+### 3.2 Smoothing & Framerate Interpolation
+Garmin "smart recording" yields **irregular intervals** (observed ~1–13 s on the
+Instinct v1), so all math is **time-based**, keyed on each point's UTC timestamp.
 
-## 4. Core Features & Logic
+* **Rolling Average:** time-based moving window (~3 s) to absorb residual jitter.
+* **Interpolation:** linearly interpolate the per-point speeds **by timestamp** onto the
+  video's frame grid (fps from `core.probe.probe_video_params`, e.g. 25/30/60).
 
-### 4.1 Coordinate-Based Speed Calculation
+### 3.3 UTC Auto-Sync
+Extract the `creation_time` of the first clip in the session via `core.probe`, align it
+to the TCX timestamps, and crop the telemetry to the video window. `--offset` is a manual
+fine-tune for camera clock drift.
 
-The script must not rely on proprietary Garmin XML extensions (`<ns3:TrackPointExtension>`). It must calculate speed manually:
+### 3.4 Minimalist Visual Design
+* **Dynamic Resolution:** canvas matches the source video exactly.
+* **Styling:** white sans-serif text with a dark drop-shadow/stroke for legibility.
+* **Format:** one decimal place and unit (e.g. "24.5 km/h").
 
-1. Extract the UTC `time`, `lat`, and `lon` for every `<trkpt>`.
-2. Use the **Haversine formula** to calculate the distance (in meters) between consecutive points.
-3. Divide by the time delta to calculate meters-per-second, then convert to kilometers-per-hour (km/h).
+## 4. Pipeline Injection (Filter Graph)
+The overlay is composited **after** the Rec.709 LUT (so the LUT can't alter the white UI).
+`grading/ffmpeg.py` gains an optional `[N:v]` overlay input (N = dynamically calculated index).
+* **Graph Flow:** `concat [vc]` → `lut3d [graded]` → `overlay [graded] + [telemetry]` → `[vout]`.
 
-### 4.2 Smoothing & Framerate Interpolation
-
-* **Rolling Average:** Apply a rolling average (e.g., a 3 to 5-second window) to the calculated speeds to eliminate erratic GPS bounce.
-* **Interpolation:** GPX data is recorded at 1Hz (1 sample per second). The target video is 25 FPS. The script must interpolate the 1Hz data points into 25 smooth data points per second using a linear or cubic spline so the on-screen numbers transition smoothly rather than ticking once per second.
-
-### 4.3 Minimalist Visual Design
-
-Generate a 4K resolution (3840x2160) transparent canvas.
-
-* Place the text in the lower-left or lower-right third.
-* **Typography:** Use a clean, modern, easily readable sans-serif font (e.g., Arial, Roboto, or a system default).
-* **Styling:** The text must be white, accompanied by a dark drop-shadow or a thick black stroke. This is critical for legibility against bright skies or white gravel roads.
-* **Format:** Render the integer value with one decimal point and the unit (e.g., "24.5 km/h").
-
-## 5. CLI Interface / UX
-
-The script should use `argparse` to accept the following arguments:
-
-* `input_gpx` (Required): Path to the `.gpx` file.
-* `--fps`: Target framerate for the output video (Default: 25).
-* `--offset`: An integer representing seconds to shift the telemetry data forward or backward to sync with camera drift (Default: 0).
-* `--duration`: An optional limit in seconds to render (useful for generating a 5-minute overlay to match a test clip rather than rendering a 3-hour file).
-* `-o`, `--output`: Path for the generated `.mov` file.
-
-## 6. Edge Cases & Design Decisions
-
-* **No GPU Acceleration Required:** Because the frames are essentially blank transparent canvases with a few lines of text, CPU rendering via Pillow/OpenCV piped directly to a CPU FFmpeg encoder is perfectly acceptable and highly portable.
-* **Time Syncing:** The script assumes the start time of the GPX track loosely matches the start time of the video. The `--offset` flag is the sole mechanism for the user to manually correct camera clock drift.
-* **Missing Elevation:** While the GPX contains elevation data (`<ele>`), this V1 implementation will ignore it to focus strictly on perfecting the speed calculation and video transparency pipeline.
+## 5. CLI Interface
+Add to `action_cam_cli/cli.py`:
+* `--telemetry <path.tcx>`: triggers telemetry generation and injection.
+* `--offset <seconds>`: optional manual nudge for camera clock drift (Default: 0).

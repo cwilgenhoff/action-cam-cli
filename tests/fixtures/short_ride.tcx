@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TrainingCenterDatabase
+  xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"
+  xmlns:ns3="http://www.garmin.com/xmlschemas/ActivityExtension/v2">
+  <Activities>
+    <Activity Sport="Biking">
+      <Id>2026-01-01T00:00:00.000Z</Id>
+      <Lap StartTime="2026-01-01T00:00:00.000Z">
+        <Track>
+          <Trackpoint>
+            <Time>2026-01-01T00:00:00.000Z</Time>
+            <Extensions><ns3:TPX><ns3:Speed>5.0</ns3:Speed></ns3:TPX></Extensions>
+          </Trackpoint>
+          <Trackpoint>
+            <Time>2026-01-01T00:00:10.000Z</Time>
+            <Extensions><ns3:TPX><ns3:Speed>10.0</ns3:Speed></ns3:TPX></Extensions>
+          </Trackpoint>
+          <Trackpoint>
+            <Time>2026-01-01T00:00:20.000Z</Time>
+            <Extensions><ns3:TPX><ns3:Speed>10.0</ns3:Speed></ns3:TPX></Extensions>
+          </Trackpoint>
+          <!-- No <Speed>: must be skipped by the parser. -->
+          <Trackpoint>
+            <Time>2026-01-01T00:00:30.000Z</Time>
+          </Trackpoint>
+        </Track>
+      </Lap>
+    </Activity>
+  </Activities>
+</TrainingCenterDatabase>
