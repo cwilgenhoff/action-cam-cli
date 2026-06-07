@@ -12,6 +12,7 @@ license = "AGPL-3.0-or-later"
 license-files = ["LICENSE"]
 dependencies = [
     "tqdm>=4.66",
+    "Pillow>=10.1",
 ]
 
 [project.optional-dependencies]
